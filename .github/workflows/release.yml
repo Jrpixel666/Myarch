@@ -24,7 +24,14 @@ jobs:
           distribution: temurin
           java-version: "17"
 
-      - uses: android-actions/setup-android@v3
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          # The action's default package list includes the long-obsolete
+          # `tools` package, which current command-line tools no longer offer:
+          # leaving it in fails the step with "Failed to find package 'tools'".
+          # Listing exactly what the build needs avoids that and is faster.
+          packages: "platform-tools platforms;android-35 build-tools;35.0.0"
 
       - name: Vendor proot
         run: |
