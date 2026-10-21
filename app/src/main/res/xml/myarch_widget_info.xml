@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Myarch's own app widget: a shortcut that opens the Arch session from any
+     other launcher, so the container is reachable even when Myarch is not the
+     active home screen. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:initialLayout="@layout/widget_myarch_shortcut"
+    android:minHeight="40dp"
+    android:minWidth="40dp"
+    android:resizeMode="none"
+    android:updatePeriodMillis="0"
+    android:widgetCategory="home_screen" />

@@ -1,0 +1,30 @@
+# Gradle / Android build output
+.gradle/
+build/
+*/build/
+local.properties
+.cxx/
+captures/
+*.apk
+*.aab
+*.ap_
+*.dex
+*.keystore
+!debug.keystore
+
+# IDE
+.idea/
+*.iml
+.kotlin/
+.DS_Store
+
+# Container artifacts fetched at install time, never committed
+container/dist/
+rootfs/
+
+# proot and its libraries are third-party GPL-2.0 builds fetched at build time
+# by tools/vendor-proot.py (see docs/THIRD_PARTY.md). They are deliberately not
+# committed: the repository holds Myarch's own code.
+# The manifest itself IS committed: it records which upstream package each
+# binary came from, which is what keeps their provenance auditable.
+app/src/main/jniLibs/*/*.so

@@ -1,0 +1,24 @@
+The XML files in this directory are vendored protocol definitions. Each carries
+its own copyright notice and licence text inside the file; they are reproduced
+here unmodified.
+
+  wayland.xml
+      From wayland 1.23.1. Copyright © 2008-2011 Kristian Høgsberg and others.
+      MIT (Expat).
+      https://gitlab.freedesktop.org/wayland/wayland
+
+  xdg-shell.xml, viewporter.xml, linux-dmabuf-v1.xml, fractional-scale-v1.xml,
+  xdg-decoration-unstable-v1.xml, xdg-output-unstable-v1.xml,
+  text-input-unstable-v3.xml
+      From wayland-protocols 1.38. MIT (Expat).
+      https://gitlab.freedesktop.org/wayland/wayland-protocols
+
+  wlr-layer-shell-unstable-v1.xml, wlr-foreign-toplevel-management-unstable-v1.xml
+      From wlr-protocols. Copyright © 2017 Drew DeVault and others.
+      MIT-like; see the notice in each file.
+      https://gitlab.freedesktop.org/wlroots/wlr-protocols
+
+They are inputs to tools/wlgen/wlgen.py, which generates
+wayland/src/main/kotlin/dev/myarch/wayland/protocol/Protocols.kt. Only the
+message names, opcodes, argument layouts and enum values are used; no
+implementation code is derived from them.

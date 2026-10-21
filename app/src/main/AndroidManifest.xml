@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.EXPAND_STATUS_BAR" />
+    <uses-permission android:name="android.permission.SET_WALLPAPER" />
+    <!-- Needed to list installed launchers' activities when the app runs as the
+         home screen on API 30 and above. -->
+    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES" />
+
+    <!-- A phone without a touchscreen is not a target, but a tablet or a
+         desktop-mode device with a keyboard is, so nothing is required. -->
+    <uses-feature
+        android:name="android.hardware.touchscreen"
+        android:required="false" />
+
+    <application
+        android:name=".MyarchApplication"
+        android:allowBackup="false"
+        android:extractNativeLibs="true"
+        android:hardwareAccelerated="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:largeHeap="true"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Myarch">
+
+        <!-- The launcher. `stateNotNeeded` is required of a home activity: the
+             system may start it before storage is unlocked. -->
+        <activity
+            android:name=".ui.home.HomeActivity"
+            android:clearTaskOnLaunch="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|density|smallestScreenSize"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:launchMode="singleTask"
+            android:resizeableActivity="true"
+            android:stateNotNeeded="true"
+            android:theme="@style/Theme.Myarch.Home"
+            android:windowSoftInputMode="adjustPan">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.HOME" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- One Linux window per Android task.
+
+             `documentLaunchMode="always"` is what creates a new task for every
+             launch, so each xdg_toplevel gets its own entry in the recents
+             list; `taskAffinity=""` keeps those tasks out of the launcher's
+             own stack. -->
+        <activity
+            android:name=".ui.window.LinuxWindowActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|keyboard|navigation|uiMode|density|smallestScreenSize"
+            android:documentLaunchMode="always"
+            android:exported="false"
+            android:label="@string/linux_window"
+            android:launchMode="standard"
+            android:resizeableActivity="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.Myarch.Window"
+            android:windowSoftInputMode="adjustResize" />
+
+        <!-- Installer, package browser, builder, themes, diagnostics. -->
+        <activity
+            android:name=".ui.console.ConsoleActivity"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density"
+            android:exported="true"
+            android:label="@string/console_title"
+            android:launchMode="singleTask">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Owns the Wayland socket, the compositor and the container session.
+             It runs in the foreground because killing it would take every open
+             Linux window with it. -->
+        <service
+            android:name=".compositor.CompositorService"
+            android:exported="false"
+            android:stopWithTask="false" />
+
+        <!-- Hosts Android app widgets dropped onto a Myarch page. -->
+        <receiver
+            android:name=".launcher.MyarchWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/myarch_widget_info" />
+        </receiver>
+    </application>
+</manifest>

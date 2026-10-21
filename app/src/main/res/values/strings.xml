@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Myarch</string>
+    <string name="console_title">Myarch</string>
+    <string name="linux_window">Linux window</string>
+    <string name="compositor_channel_name">Myarch session</string>
+    <string name="compositor_channel_description">Keeps the Linux session and its windows alive.</string>
+    <string name="compositor_running">Arch session running</string>
+    <string name="compositor_stopped">Arch session stopped</string>
+    <string name="widget_label">Myarch widget</string>
+</resources>

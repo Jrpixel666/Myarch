@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws everything; these themes only set up the window. -->
+    <style name="Theme.Myarch" parent="android:Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/myarch_background</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+    </style>
+
+    <!-- The home screen draws its own background (the theme's wallpaper or the
+         Quickshell background layer), so the window is transparent. -->
+    <style name="Theme.Myarch.Home" parent="Theme.Myarch">
+        <item name="android:windowShowWallpaper">true</item>
+        <item name="android:windowBackground">@android:color/transparent</item>
+        <item name="android:windowAnimationStyle">@null</item>
+    </style>
+
+    <!-- A Linux window fills its task with no system chrome of its own. -->
+    <style name="Theme.Myarch.Window" parent="Theme.Myarch">
+        <item name="android:windowBackground">@color/myarch_background</item>
+        <item name="android:windowIsTranslucent">false</item>
+    </style>
+</resources>

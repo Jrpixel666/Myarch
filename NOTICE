@@ -1,0 +1,13 @@
+Myarch
+Copyright 2026 The Myarch contributors
+
+This product includes software developed by third parties; see
+docs/THIRD_PARTY.md for the full list, licences and corresponding sources.
+
+Binaries fetched into the APK at build time by tools/vendor-proot.py:
+  - proot (GPL-2.0-or-later)       https://github.com/proot-me/proot
+  - talloc (LGPL-3.0-or-later)     https://talloc.samba.org/
+  - libandroid-shmem (BSD-2-Clause) https://github.com/termux/libandroid-shmem
+
+Wayland protocol definitions under tools/protocols/ are MIT (Expat) licensed and
+retain their own copyright notices.

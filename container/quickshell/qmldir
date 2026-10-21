@@ -1,0 +1,5 @@
+# Registers Myarch's QML singletons. Quickshell needs this file to resolve
+# `Theme` and `WidgetRegistry` as singletons rather than plain components.
+singleton Theme 1.0 Theme.qml
+singleton WidgetRegistry 1.0 WidgetRegistry.qml
+Meter 1.0 Meter.qml

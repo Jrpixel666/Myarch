@@ -1,0 +1,99 @@
+name: build
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Tests and debug APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Cache Gradle
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle.kts', 'gradle/libs.versions.toml', 'gradle/wrapper/gradle-wrapper.properties') }}
+          restore-keys: gradle-${{ runner.os }}-
+
+      - name: Vendor proot
+        # Done as its own step so a repository-side failure is distinguishable
+        # from a compile error. The build tolerates its absence; CI should not.
+        run: |
+          python3 tools/vendor-proot.py
+          python3 tools/vendor-proot.py --check
+
+      - name: Check the generated sources are in sync
+        # Protocols.kt and the fallback keymap are generated and committed. If a
+        # generator or its input changed without the output being regenerated,
+        # that is a bug waiting to happen.
+        run: |
+          python3 tools/wlgen/wlgen.py \
+            --out wayland/src/main/kotlin/dev/myarch/wayland/protocol/Protocols.kt \
+            tools/protocols/*.xml
+          python3 tools/make-fallback-keymap.py --out container/keymap/us-fallback.xkb
+          git diff --exit-code -- \
+            wayland/src/main/kotlin/dev/myarch/wayland/protocol/Protocols.kt \
+            container/keymap/us-fallback.xkb
+
+      - name: Unit tests
+        run: ./gradlew test --stacktrace
+
+      - name: Lint
+        run: ./gradlew :app:lintDebug --stacktrace
+
+      - name: Assemble the debug APK
+        run: ./gradlew assembleDebug --stacktrace
+
+      - name: Upload the APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: myarch-debug-apk
+          path: app/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
+
+      - name: Upload test reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            */build/reports/tests/
+            */build/test-results/
+          if-no-files-found: ignore
+
+  shellcheck:
+    name: Container scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check syntax
+        # The scripts run inside the container, where a syntax error means a
+        # failed install with a confusing message.
+        run: |
+          for script in container/scripts/*.sh; do
+            bash -n "$script" && echo "ok   $script"
+          done
+      - uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: container/scripts
+          severity: warning

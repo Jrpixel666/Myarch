@@ -1,0 +1,273 @@
+#!/usr/bin/env python3
+"""Generate Myarch's self-contained fallback XKB keymap.
+
+Wayland clients block until the compositor sends them a keymap, so Myarch has
+to have one available before the container's xkeyboard-config is installed.
+This writes a compact US keymap with no `include` directives, because a client
+resolves includes against its own xkb data path which may not exist yet.
+
+Usage:
+    tools/make-fallback-keymap.py --out container/keymap/us-fallback.xkb
+
+Validate the result with:
+    xkbcomp -w 5 container/keymap/us-fallback.xkb /dev/null
+"""
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+ROW_D = "qwertyuiop"
+ROW_C = "asdfghjkl"
+ROW_B = "zxcvbnm"
+
+DIGITS = [
+    ("1", "exclam"), ("2", "at"), ("3", "numbersign"), ("4", "dollar"),
+    ("5", "percent"), ("6", "asciicircum"), ("7", "ampersand"),
+    ("8", "asterisk"), ("9", "parenleft"), ("0", "parenright"),
+]
+
+KEYPAD = [
+    (71, "KP7", "KP_Home", "KP_7"), (72, "KP8", "KP_Up", "KP_8"),
+    (73, "KP9", "KP_Prior", "KP_9"), (75, "KP4", "KP_Left", "KP_4"),
+    (76, "KP5", "KP_Begin", "KP_5"), (77, "KP6", "KP_Right", "KP_6"),
+    (79, "KP1", "KP_End", "KP_1"), (80, "KP2", "KP_Down", "KP_2"),
+    (81, "KP3", "KP_Next", "KP_3"), (82, "KP0", "KP_Insert", "KP_0"),
+    (83, "KPDL", "KP_Delete", "KP_Decimal"),
+]
+
+
+def build_keys() -> list[tuple[int, str, list[str], str]]:
+    """Returns (evdev code, xkb name, symbols, key type) for every key."""
+    keys: list[tuple[int, str, list[str], str]] = []
+
+    def add(evdev: int, name: str, symbols: list[str], key_type: str = "ONE_LEVEL") -> None:
+        keys.append((evdev, name, symbols, key_type))
+
+    add(1, "ESC", ["Escape"])
+    for index, (base, shifted) in enumerate(DIGITS, start=1):
+        add(1 + index, f"AE{index:02d}", [base, shifted], "TWO_LEVEL")
+    add(12, "AE11", ["minus", "underscore"], "TWO_LEVEL")
+    add(13, "AE12", ["equal", "plus"], "TWO_LEVEL")
+    add(14, "BKSP", ["BackSpace"])
+    add(15, "TAB", ["Tab", "ISO_Left_Tab"], "TWO_LEVEL")
+    for index, char in enumerate(ROW_D, start=1):
+        add(15 + index, f"AD{index:02d}", [char, char.upper()], "ALPHABETIC")
+    add(26, "AD11", ["bracketleft", "braceleft"], "TWO_LEVEL")
+    add(27, "AD12", ["bracketright", "braceright"], "TWO_LEVEL")
+    add(28, "RTRN", ["Return"])
+    add(29, "LCTL", ["Control_L"])
+    for index, char in enumerate(ROW_C, start=1):
+        add(29 + index, f"AC{index:02d}", [char, char.upper()], "ALPHABETIC")
+    add(39, "AC10", ["semicolon", "colon"], "TWO_LEVEL")
+    add(40, "AC11", ["apostrophe", "quotedbl"], "TWO_LEVEL")
+    add(41, "TLDE", ["grave", "asciitilde"], "TWO_LEVEL")
+    add(42, "LFSH", ["Shift_L"])
+    add(43, "BKSL", ["backslash", "bar"], "TWO_LEVEL")
+    for index, char in enumerate(ROW_B, start=1):
+        add(43 + index, f"AB{index:02d}", [char, char.upper()], "ALPHABETIC")
+    add(51, "AB08", ["comma", "less"], "TWO_LEVEL")
+    add(52, "AB09", ["period", "greater"], "TWO_LEVEL")
+    add(53, "AB10", ["slash", "question"], "TWO_LEVEL")
+    add(54, "RTSH", ["Shift_R"])
+    add(55, "KPMU", ["KP_Multiply"])
+    add(56, "LALT", ["Alt_L"])
+    add(57, "SPCE", ["space"])
+    add(58, "CAPS", ["Caps_Lock"])
+    for index in range(1, 11):
+        add(58 + index, f"FK{index:02d}", [f"F{index}"])
+    add(69, "NMLK", ["Num_Lock"])
+    add(70, "SCLK", ["Scroll_Lock"])
+    for evdev, name, base, numeric in KEYPAD:
+        add(evdev, name, [base, numeric], "KEYPAD")
+    add(74, "KPSU", ["KP_Subtract"])
+    add(78, "KPAD", ["KP_Add"])
+    add(87, "FK11", ["F11"])
+    add(88, "FK12", ["F12"])
+    add(96, "KPEN", ["KP_Enter"])
+    add(97, "RCTL", ["Control_R"])
+    add(98, "KPDV", ["KP_Divide"])
+    add(99, "PRSC", ["Print"])
+    add(100, "RALT", ["ISO_Level3_Shift"])
+    add(102, "HOME", ["Home"])
+    add(103, "UP", ["Up"])
+    add(104, "PGUP", ["Prior"])
+    add(105, "LEFT", ["Left"])
+    add(106, "RGHT", ["Right"])
+    add(107, "END", ["End"])
+    add(108, "DOWN", ["Down"])
+    add(109, "PGDN", ["Next"])
+    add(110, "INS", ["Insert"])
+    add(111, "DELE", ["Delete"])
+    add(119, "PAUS", ["Pause"])
+    add(125, "LWIN", ["Super_L"])
+    add(126, "RWIN", ["Super_R"])
+    add(127, "COMP", ["Multi_key"])
+    return keys
+
+
+HEADER = """// A compact, self-contained XKB keymap for the Myarch compositor.
+//
+// Wayland requires the compositor to hand every keyboard client a compiled
+// keymap, and clients block until they get one. The real keymap is generated
+// inside the container by `xkbcli compile-keymap` once xkeyboard-config is
+// installed (see container/scripts/generate-keymap.sh); this file is the
+// fallback used before that happens -- during the install, and on the first
+// boot of a container where the package is missing.
+//
+// It is deliberately self-contained: it uses no `include` directives, because
+// the client resolves includes against *its* xkb data path and we cannot rely
+// on that existing. US layout only; everything else comes from the container.
+//
+// Generated by tools/make-fallback-keymap.py -- do not edit by hand.
+xkb_keymap {
+"""
+
+TYPES = """xkb_types "myarch" {
+    virtual_modifiers NumLock,Alt,LevelThree,Super,Meta;
+
+    type "ONE_LEVEL" {
+        modifiers = none;
+        map[none] = Level1;
+        level_name[Level1] = "Any";
+    };
+
+    type "TWO_LEVEL" {
+        modifiers = Shift;
+        map[none] = Level1;
+        map[Shift] = Level2;
+        level_name[Level1] = "Base";
+        level_name[Level2] = "Shift";
+    };
+
+    // Caps Lock and Shift both reach level 2, which is what makes typed
+    // letters follow Caps Lock without affecting punctuation.
+    type "ALPHABETIC" {
+        modifiers = Shift+Lock;
+        map[none] = Level1;
+        map[Shift] = Level2;
+        map[Lock] = Level2;
+        map[Shift+Lock] = Level1;
+        level_name[Level1] = "Base";
+        level_name[Level2] = "Caps";
+    };
+
+    type "KEYPAD" {
+        modifiers = Shift+NumLock;
+        map[none] = Level1;
+        map[Shift] = Level2;
+        map[NumLock] = Level2;
+        map[Shift+NumLock] = Level1;
+        level_name[Level1] = "Base";
+        level_name[Level2] = "Number";
+    };
+};
+
+"""
+
+COMPAT = """xkb_compatibility "myarch" {
+    virtual_modifiers NumLock,Alt,LevelThree,Super,Meta;
+
+    interpret.useModMapMods = AnyLevel;
+    interpret.repeat = False;
+
+    interpret Shift_L+AnyOfOrNone(all) {
+        action = SetMods(modifiers=Shift, clearLocks);
+    };
+    interpret Shift_R+AnyOfOrNone(all) {
+        action = SetMods(modifiers=Shift, clearLocks);
+    };
+    interpret Control_L+AnyOfOrNone(all) {
+        action = SetMods(modifiers=Control, clearLocks);
+    };
+    interpret Control_R+AnyOfOrNone(all) {
+        action = SetMods(modifiers=Control, clearLocks);
+    };
+    interpret Caps_Lock+AnyOfOrNone(all) {
+        action = LockMods(modifiers=Lock);
+    };
+    interpret Num_Lock+AnyOfOrNone(all) {
+        virtualModifier = NumLock;
+        action = LockMods(modifiers=NumLock);
+    };
+    interpret Alt_L+AnyOfOrNone(all) {
+        virtualModifier = Alt;
+        action = SetMods(modifiers=modMapMods, clearLocks);
+    };
+    interpret Alt_R+AnyOfOrNone(all) {
+        virtualModifier = Alt;
+        action = SetMods(modifiers=modMapMods, clearLocks);
+    };
+    interpret ISO_Level3_Shift+AnyOfOrNone(all) {
+        virtualModifier = LevelThree;
+        action = SetMods(modifiers=modMapMods, clearLocks);
+    };
+    interpret Super_L+AnyOfOrNone(all) {
+        virtualModifier = Super;
+        action = SetMods(modifiers=modMapMods, clearLocks);
+    };
+    interpret Super_R+AnyOfOrNone(all) {
+        virtualModifier = Super;
+        action = SetMods(modifiers=modMapMods, clearLocks);
+    };
+
+    indicator "Caps Lock" {
+        whichModState = Locked;
+        modifiers = Lock;
+    };
+    indicator "Num Lock" {
+        whichModState = Locked;
+        modifiers = NumLock;
+    };
+};
+
+"""
+
+MODIFIER_MAP = """
+    modifier_map Shift { <LFSH>, <RTSH> };
+    modifier_map Lock { <CAPS> };
+    modifier_map Control { <LCTL>, <RCTL> };
+    modifier_map Mod1 { <LALT> };
+    modifier_map Mod2 { <NMLK> };
+    modifier_map Mod4 { <LWIN>, <RWIN> };
+    modifier_map Mod5 { <RALT> };
+};
+"""
+
+
+def render(keys: list[tuple[int, str, list[str], str]]) -> str:
+    parts = [HEADER]
+    parts.append('xkb_keycodes "myarch" {\n    minimum = 8;\n    maximum = 255;\n')
+    for evdev, name, _symbols, _key_type in keys:
+        # X11 keycodes are the evdev code plus 8, an offset that dates back to
+        # the original XFree86 keyboard driver and is still what clients assume.
+        parts.append(f"    <{name}> = {evdev + 8};\n")
+    parts.append('    indicator 1 = "Caps Lock";\n')
+    parts.append('    indicator 2 = "Num Lock";\n')
+    parts.append('    indicator 3 = "Scroll Lock";\n')
+    parts.append("};\n\n")
+    parts.append(TYPES)
+    parts.append(COMPAT)
+    parts.append('xkb_symbols "myarch" {\n    name[Group1] = "English (US)";\n\n')
+    for _evdev, name, symbols, key_type in keys:
+        joined = ", ".join(symbols)
+        parts.append(f'    key <{name}> {{ type = "{key_type}", [ {joined} ] }};\n')
+    parts.append(MODIFIER_MAP)
+    parts.append("};\n")
+    return "".join(parts)
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--out", default="container/keymap/us-fallback.xkb")
+    args = parser.parse_args()
+    keys = build_keys()
+    path = Path(args.out)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(render(keys), encoding="utf-8")
+    print(f"wrote {path} with {len(keys)} keys")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
