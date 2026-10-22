@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Android
 import androidx.compose.material.icons.filled.FolderOpen
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Smartphone
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -29,6 +30,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -52,6 +54,7 @@ import com.apkforge.viewmodel.ForgeViewModel
 @Composable
 fun HomeScreen(vm: ForgeViewModel, onLoaded: () -> Unit) {
     var showApps by remember { mutableStateOf(false) }
+    var appFilter by remember { mutableStateOf("") }
 
     val picker = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -98,8 +101,23 @@ fun HomeScreen(vm: ForgeViewModel, onLoaded: () -> Unit) {
         item { BusyBar(vm.busy, vm.busyLabel) }
 
         if (showApps) {
-            item { SectionLabel("Installed apps (${vm.installedApps.size})") }
-            items(vm.installedApps, key = { it.packageName }) { app ->
+            val query = appFilter.trim()
+            val filtered = if (query.isEmpty()) vm.installedApps else vm.installedApps.filter {
+                it.label.contains(query, ignoreCase = true) ||
+                    it.packageName.contains(query, ignoreCase = true)
+            }
+            item { SectionLabel("Installed apps (${filtered.size}/${vm.installedApps.size})") }
+            item {
+                OutlinedTextField(
+                    value = appFilter,
+                    onValueChange = { appFilter = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    label = { Text("Filter by name or package") },
+                    leadingIcon = { Icon(Icons.Filled.Search, null) },
+                )
+            }
+            items(filtered, key = { it.packageName }) { app ->
                 Card(
                     onClick = { vm.importInstalled(app.packageName); showApps = false },
                     modifier = Modifier.fillMaxWidth(),

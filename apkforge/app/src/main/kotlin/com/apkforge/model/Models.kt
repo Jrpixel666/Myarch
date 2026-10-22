@@ -40,6 +40,15 @@ enum class DecodeMode(val label: String, val detail: String) {
     ),
 }
 
+/** One match from searching the decoded project (a file name or a line). */
+data class SearchHit(
+    val file: File,
+    val relativePath: String,
+    /** 1-based line number for a content match, or null for a filename match. */
+    val line: Int?,
+    val preview: String,
+)
+
 /** A file or directory inside the decoded apktool project, for the tree view. */
 data class FileNode(
     val file: File,

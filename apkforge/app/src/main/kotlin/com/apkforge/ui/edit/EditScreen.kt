@@ -21,10 +21,17 @@ import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.FolderOpen
 import androidx.compose.material.icons.filled.Transform
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.SegmentedButton
@@ -51,7 +58,7 @@ import java.io.File
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditScreen(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
-    var showLog by remember { mutableStateOf(false) }
+    var tab by remember { mutableStateOf(EditTab.FILES) }
     val decoded = vm.decodedDir != null
 
     Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -121,27 +128,38 @@ fun EditScreen(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
         BusyBar(vm.busy, vm.busyLabel)
         Spacer(Modifier.height(8.dp))
 
-        // Files / Log switch.
+        // Files / Search / Log switch.
         SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            SegmentedButton(
-                selected = !showLog,
-                onClick = { showLog = false },
-                shape = SegmentedButtonDefaults.itemShape(0, 2),
-            ) { Text("Files") }
-            SegmentedButton(
-                selected = showLog,
-                onClick = { showLog = true },
-                shape = SegmentedButtonDefaults.itemShape(1, 2),
-            ) { Text("Log (${vm.log.size})") }
+            EditTab.entries.forEachIndexed { index, entry ->
+                SegmentedButton(
+                    selected = tab == entry,
+                    onClick = { tab = entry },
+                    shape = SegmentedButtonDefaults.itemShape(index, EditTab.entries.size),
+                ) {
+                    Text(
+                        when (entry) {
+                            EditTab.FILES -> "Files"
+                            EditTab.SEARCH -> "Search"
+                            EditTab.LOG -> "Log (${vm.log.size})"
+                        },
+                    )
+                }
+            }
         }
 
         Spacer(Modifier.height(8.dp))
 
         Box(Modifier.fillMaxSize()) {
-            if (showLog) LogView(vm) else FileTree(vm, onOpenFile)
+            when (tab) {
+                EditTab.FILES -> FileTree(vm, onOpenFile)
+                EditTab.SEARCH -> SearchPanel(vm, onOpenFile)
+                EditTab.LOG -> LogView(vm)
+            }
         }
     }
 }
+
+private enum class EditTab { FILES, SEARCH, LOG }
 
 @Composable
 private fun FileTree(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
@@ -207,6 +225,90 @@ private fun TreeRow(node: FileNode, expanded: Boolean, onClick: () -> Unit) {
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+    }
+}
+
+@Composable
+private fun SearchPanel(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
+    if (vm.decodedDir == null) {
+        Text(
+            "Decode an APK first, then search its files.",
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        return
+    }
+    Column(Modifier.fillMaxSize()) {
+        OutlinedTextField(
+            value = vm.searchQuery,
+            onValueChange = { vm.searchQuery = it },
+            modifier = Modifier.fillMaxWidth(),
+            singleLine = true,
+            label = { Text("Search decoded project") },
+            trailingIcon = {
+                IconButton(onClick = { vm.runSearch() }) {
+                    Icon(Icons.Filled.Search, "Search")
+                }
+            },
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+            keyboardActions = KeyboardActions(onSearch = { vm.runSearch() }),
+        )
+        Spacer(Modifier.height(8.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            FilterChip(
+                selected = !vm.searchContents,
+                onClick = { vm.searchContents = false },
+                label = { Text("Names") },
+            )
+            FilterChip(
+                selected = vm.searchContents,
+                onClick = { vm.searchContents = true },
+                label = { Text("Names + contents") },
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+
+        if (vm.searching) {
+            LinearProgressIndicator(Modifier.fillMaxWidth())
+        } else if (vm.searchResults.isNotEmpty() || vm.searchQuery.isNotBlank()) {
+            Text(
+                buildString {
+                    append("${vm.searchResults.size} result")
+                    if (vm.searchResults.size != 1) append("s")
+                    if (vm.searchTruncated) append(" (capped)")
+                },
+                style = MaterialTheme.typography.labelMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        Spacer(Modifier.height(4.dp))
+
+        LazyColumn(Modifier.fillMaxSize()) {
+            items(vm.searchResults, key = { "${it.relativePath}:${it.line ?: -1}" }) { hit ->
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenFile(hit.file) }
+                        .padding(vertical = 6.dp),
+                ) {
+                    Text(
+                        hit.relativePath + (hit.line?.let { ":$it" } ?: ""),
+                        style = MaterialTheme.typography.bodyMedium,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.primary,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Text(
+                        if (hit.line != null) hit.preview else "matches file name",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontFamily = FontFamily.Monospace,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
         }
     }
 }

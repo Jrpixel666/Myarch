@@ -15,7 +15,10 @@ import com.apkforge.model.DecodeMode
 import com.apkforge.model.FileNode
 import com.apkforge.model.InstalledAppInfo
 import com.apkforge.model.LoadedApk
+import com.apkforge.model.SearchHit
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.nio.charset.StandardCharsets
 
@@ -55,6 +58,18 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
     /** Streaming output from decode / build / sign. */
     val log = mutableStateListOf<String>()
 
+    // ---- project search -----------------------------------------------------
+
+    var searchQuery by mutableStateOf("")
+    /** When true, grep file contents as well as names; when false, names only. */
+    var searchContents by mutableStateOf(true)
+    var searching by mutableStateOf(false)
+        private set
+    /** True when results were capped at [MAX_SEARCH_HITS]. */
+    var searchTruncated by mutableStateOf(false)
+        private set
+    val searchResults = mutableStateListOf<SearchHit>()
+
     private val expanded = mutableStateListOf<String>()
 
     private val projectDir: File get() = File(repo.workspaceDir, "decoded")
@@ -88,6 +103,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
         lastSignedApk = null
         expanded.clear()
         log.clear()
+        clearSearch()
         message = "Loaded ${apk.label ?: apk.displayName}"
     }
 
@@ -133,6 +149,7 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
                 decodedDir = it
                 expanded.clear()
                 expanded.add(it.absolutePath)
+                clearSearch()
                 message = "Decoded into ${it.name}/"
             }.onFailure { message = "Decode failed — see the log." }
         }
@@ -152,6 +169,75 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
                         .onFailure { message = "Signing failed — see the log." }
                 }
         }
+    }
+
+    fun clearSearch() {
+        searchQuery = ""
+        searchResults.clear()
+        searchTruncated = false
+    }
+
+    /** Search the decoded project by file name and (optionally) file contents. */
+    fun runSearch() {
+        val root = decodedDir ?: run { message = "Decode first."; return }
+        val query = searchQuery.trim()
+        if (query.isEmpty()) {
+            searchResults.clear()
+            searchTruncated = false
+            return
+        }
+        if (searching) return
+        searching = true
+        val contents = searchContents
+        viewModelScope.launch {
+            val (hits, truncated) = withContext(Dispatchers.IO) { search(root, query, contents) }
+            searchResults.clear()
+            searchResults.addAll(hits)
+            searchTruncated = truncated
+            searching = false
+            if (hits.isEmpty()) message = "No matches for \"$query\"."
+        }
+    }
+
+    private fun search(root: File, query: String, contents: Boolean): Pair<List<SearchHit>, Boolean> {
+        val hits = ArrayList<SearchHit>()
+        for (file in root.walkTopDown()) {
+            if (hits.size >= MAX_SEARCH_HITS) return hits to true
+            if (!file.isFile) continue
+            val relative = file.relativeTo(root).path
+
+            // Filename match.
+            if (file.name.contains(query, ignoreCase = true)) {
+                hits.add(SearchHit(file, relative, null, relative))
+                if (hits.size >= MAX_SEARCH_HITS) return hits to true
+            }
+
+            // Content match (text files only).
+            if (contents && isProbablyText(file)) {
+                var perFile = 0
+                runCatching {
+                    file.bufferedReader().useLines { lines ->
+                        var lineNo = 0
+                        for (line in lines) {
+                            lineNo++
+                            if (line.contains(query, ignoreCase = true)) {
+                                hits.add(SearchHit(file, relative, lineNo, line.trim().take(200)))
+                                perFile++
+                                if (perFile >= MAX_HITS_PER_FILE) break
+                                if (hits.size >= MAX_SEARCH_HITS) break
+                            }
+                        }
+                    }
+                }
+                if (hits.size >= MAX_SEARCH_HITS) return hits to true
+            }
+        }
+        return hits to false
+    }
+
+    private companion object {
+        const val MAX_SEARCH_HITS = 500
+        const val MAX_HITS_PER_FILE = 20
     }
 
     // ---- file tree + editor -------------------------------------------------

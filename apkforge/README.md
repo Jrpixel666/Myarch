@@ -13,7 +13,13 @@ It has three pages, reached from the bottom navigation bar:
    real app.
 3. **Edit** — runs `apktool d` to decode the APK into an editable project
    (manifest, smali, resources), lets you browse and edit the files, then runs
-   `apktool b` and signs the result so it is installable again.
+   `apktool b` and signs the result so it is installable again. A **Search**
+   tab greps the decoded project by file name and (optionally) file contents —
+   e.g. find a string, a method or a resource — and each hit opens the file in
+   the editor.
+
+The **Load** page also has a filter box to search the installed-apps list by
+label or package name.
 
 > This is a sibling project living in the Myarch repository. It is **not** part
 > of the Myarch launcher/compositor and builds on its own.
