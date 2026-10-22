@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A plain, dependency-free theme (no AndroidX / Material needed). The
+         page itself owns all the visual styling via CSS. -->
+    <style name="Forge.Theme" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowBackground">@android:color/black</item>
+    </style>
+</resources>

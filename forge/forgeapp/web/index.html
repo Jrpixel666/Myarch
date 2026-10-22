@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0d1117">
+<title>Forge</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg:#0d1117; --panel:#161b22; --line:#30363d; --fg:#e6edf3;
+    --muted:#8b949e; --accent:#4c8bf5; --accent2:#3fb950; --err:#f85149;
+  }
+  * { box-sizing:border-box; }
+  body {
+    margin:0; background:var(--bg); color:var(--fg);
+    font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    padding:max(18px,env(safe-area-inset-top)) 16px 32px;
+    max-width:720px; margin-inline:auto;
+  }
+  header { display:flex; align-items:baseline; gap:10px; margin:4px 0 2px; }
+  h1 { font-size:1.6rem; margin:0; }
+  .tag { color:var(--muted); font-size:.85rem; }
+  p.lede { color:var(--muted); margin:.3em 0 1.2em; }
+  .panel { background:var(--panel); border:1px solid var(--line); border-radius:16px; padding:16px; margin:14px 0; }
+  label { font-weight:600; display:block; margin-bottom:8px; }
+  textarea {
+    width:100%; min-height:84px; resize:vertical; font:inherit; color:inherit;
+    background:#0d1117; border:1px solid var(--line); border-radius:12px; padding:12px;
+  }
+  .row { display:flex; gap:10px; flex-wrap:wrap; margin-top:12px; }
+  button {
+    font:inherit; font-weight:700; border:0; border-radius:12px; padding:14px 20px;
+    background:var(--accent); color:#fff; cursor:pointer; flex:1 1 auto;
+  }
+  button.secondary { background:transparent; color:var(--accent); border:1px solid var(--line); flex:0 0 auto; }
+  button:disabled { opacity:.5; cursor:default; }
+  .chips { display:flex; gap:8px; flex-wrap:wrap; margin-top:12px; }
+  .chip { font-size:.85rem; color:var(--muted); background:#0d1117; border:1px solid var(--line);
+          border-radius:999px; padding:6px 12px; cursor:pointer; }
+  .chip:hover { color:var(--fg); border-color:var(--accent); }
+  .status { font-weight:700; }
+  .status.done { color:var(--accent2); }
+  .status.error { color:var(--err); }
+  pre.log {
+    background:#010409; border:1px solid var(--line); border-radius:12px; padding:12px;
+    max-height:320px; overflow:auto; white-space:pre-wrap; word-break:break-word;
+    font:13px/1.45 ui-monospace,SFMono-Regular,Menlo,monospace; color:#c9d1d9;
+  }
+  a.dl { display:block; text-align:center; text-decoration:none; font-weight:700; color:#fff;
+         background:var(--accent2); border-radius:12px; padding:14px; margin-top:12px; }
+  .muted { color:var(--muted); font-size:.9rem; }
+  .doctor { font-size:.85rem; color:var(--muted); display:flex; flex-wrap:wrap; gap:6px 14px; }
+  .ok { color:var(--accent2); } .bad { color:var(--err); }
+  .hidden { display:none; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>⚒ Forge</h1>
+    <span class="tag">idea → APK · for Myarch</span>
+  </header>
+  <p class="lede">Describe an app in a sentence. Forge writes it as a web app and
+    builds an installable Android APK.</p>
+
+  <div class="panel">
+    <label for="idea">Your idea</label>
+    <textarea id="idea" placeholder="e.g. next bus from my location"></textarea>
+    <div class="chips" id="examples">
+      <span class="chip">next bus from my location</span>
+      <span class="chip">a 25-minute pomodoro timer</span>
+      <span class="chip">a quick note that stays on my phone</span>
+      <span class="chip">what's the weather near me</span>
+    </div>
+    <div class="row">
+      <button id="build">Build APK</button>
+      <button id="again" class="secondary hidden">New app</button>
+    </div>
+    <p class="muted" id="hint">Builds take a few minutes the first time (Gradle warms up).</p>
+  </div>
+
+  <div class="panel hidden" id="result">
+    <div>Status: <span class="status" id="state">…</span>
+      <span class="muted" id="meta"></span></div>
+    <a class="dl hidden" id="download">⬇ Download &amp; install APK</a>
+    <p class="muted hidden" id="installhint">On the phone, tap the APK and allow
+      installing from this source. On Linux, use <code>adb install</code>.</p>
+    <pre class="log" id="log"></pre>
+  </div>
+
+  <div class="panel">
+    <div class="doctor" id="doctor">Checking toolchain…</div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+let poll = null;
+
+function setChips() {
+  document.querySelectorAll('.chip').forEach(c =>
+    c.onclick = () => { $('idea').value = c.textContent; });
+}
+
+async function doctor() {
+  try {
+    const d = await (await fetch('/api/doctor')).json();
+    const mark = (ok, yes, no) => `<span class="${ok ? 'ok' : 'bad'}">${ok ? '●' : '○'} ${ok ? yes : no}</span>`;
+    const parts = [
+      mark(d.java, 'Java', 'Java missing'),
+      mark(!!d.android_sdk, 'Android SDK', 'No Android SDK'),
+      mark(d.template, 'Template', 'Template missing'),
+      d.force_offline
+        ? '<span class="ok">● Offline mode</span>'
+        : mark(d.anthropic_sdk && d.api_key, 'Claude (' + d.model + ')', 'Claude not configured → offline fallback'),
+    ];
+    $('doctor').innerHTML = parts.join('');
+  } catch (e) { $('doctor').textContent = 'Could not reach the server.'; }
+}
+
+function render(s) {
+  $('result').classList.remove('hidden');
+  const st = $('state');
+  st.textContent = s.state;
+  st.className = 'status ' + s.state;
+  $('meta').textContent = s.app_name
+    ? `· ${s.app_name}${s.source ? ' (' + s.source + ')' : ''}${s.seconds ? ' · ' + Math.round(s.seconds) + 's' : ''}`
+    : '';
+  $('log').textContent = (s.log || []).join('\n');
+  $('log').scrollTop = $('log').scrollHeight;
+  const dl = $('download');
+  if (s.state === 'done' && s.download) {
+    dl.href = s.download; dl.classList.remove('hidden');
+    $('installhint').classList.remove('hidden');
+  }
+  if (s.state === 'done' || s.state === 'error') {
+    clearInterval(poll); poll = null;
+    $('build').disabled = false; $('build').textContent = 'Build APK';
+    $('again').classList.remove('hidden');
+  }
+}
+
+async function build() {
+  const idea = $('idea').value.trim();
+  if (!idea) { $('idea').focus(); return; }
+  $('build').disabled = true; $('build').textContent = 'Working…';
+  $('again').classList.add('hidden');
+  $('download').classList.add('hidden');
+  $('installhint').classList.add('hidden');
+  try {
+    const r = await (await fetch('/api/build', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ idea })
+    })).json();
+    if (r.error) throw new Error(r.error);
+    const tick = async () => {
+      const s = await (await fetch('/api/status/' + r.id)).json();
+      render(s);
+    };
+    await tick();
+    poll = setInterval(tick, 1500);
+  } catch (e) {
+    $('result').classList.remove('hidden');
+    $('state').textContent = 'error'; $('state').className = 'status error';
+    $('log').textContent = String(e);
+    $('build').disabled = false; $('build').textContent = 'Build APK';
+  }
+}
+
+$('build').onclick = build;
+$('again').onclick = () => { $('result').classList.add('hidden'); $('idea').focus(); };
+$('idea').addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') build();
+});
+setChips();
+doctor();
+</script>
+</body>
+</html>

@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Forge launcher: idea -> Android APK.
+#   ./forge                 start the GUI (and open a browser)
+#   ./forge --lan           ...reachable from your phone on the same Wi-Fi
+#   ./forge build "idea"    one-shot headless build
+#   ./forge doctor          check the toolchain
+set -euo pipefail
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export PYTHONPATH="$DIR${PYTHONPATH:+:$PYTHONPATH}"
+
+# `./forge --lan` etc. (an option but no subcommand) means `serve`.
+if [ "$#" -gt 0 ] && [ "${1#-}" != "$1" ]; then
+  set -- serve "$@"
+fi
+exec python3 -m forgeapp "$@"
