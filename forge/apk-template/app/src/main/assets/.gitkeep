@@ -1,0 +1,2 @@
+# The builder writes the generated web app (index.html and friends) here
+# before invoking Gradle. This file just keeps the directory in git.

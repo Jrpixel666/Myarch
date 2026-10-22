@@ -1,0 +1,12 @@
+# Forge scratch + outputs
+out/
+*.apk
+__pycache__/
+*.pyc
+
+# Generated build scratch, if FORGE_WORK/FORGE_OUT ever point inside the repo
+builds/
+apks/
+apk-template/local.properties
+apk-template/app/build/
+apk-template/.gradle/
