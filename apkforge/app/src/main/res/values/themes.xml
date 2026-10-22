@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Compose draws the real UI; this base theme only styles the splash /
+         system bars before the first frame. -->
+    <style name="Theme.ApkForge" parent="android:Theme.Material.NoActionBar">
+        <item name="android:statusBarColor">#0E1116</item>
+        <item name="android:navigationBarColor">#0E1116</item>
+        <item name="android:windowBackground">#0E1116</item>
+    </style>
+</resources>

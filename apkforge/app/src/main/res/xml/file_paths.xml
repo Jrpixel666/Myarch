@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Rebuilt / signed APKs we hand to the system installer live here. -->
+    <files-path
+        name="workspace"
+        path="." />
+    <cache-path
+        name="cache"
+        path="." />
+</paths>
