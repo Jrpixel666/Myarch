@@ -95,10 +95,13 @@ kotlin {
 }
 
 configurations.all {
-    // Android already provides these packages; the copies that ride in on
-    // apktool-lib's transitive graph would be duplicate classes at D8 time.
-    exclude(group = "xpp3", module = "xpp3")
-    exclude(group = "xmlpull", module = "xmlpull")
+    // apktool needs xpp3: besides core org.xmlpull.v1, it is the only artifact
+    // carrying org.xmlpull.v1.wrapper.* (XmlSerializerWrapper and friends),
+    // which apktool's resource decoder uses. So xpp3 stays. kxml2 would ALSO
+    // ship core org.xmlpull.v1.*, and the two together are a duplicate class at
+    // D8 time — exclude kxml2 and let xpp3 be the single xmlpull provider.
+    // (On-device the core classes also exist on the bootclasspath, which wins
+    // at runtime; that is fine and is how apktool-based apps normally ship.)
     exclude(group = "net.sf.kxml", module = "kxml2")
     exclude(group = "com.google.guava", module = "listenablefuture")
 }

@@ -142,8 +142,10 @@ class ApkToolEngine(private val context: Context) {
                 }
             }
         } else if (aapt != null) {
-            // Newer apktool wants a File; set both the binary and the version.
-            setConfig(config, "setAaptBinary", File::class.java, aapt.file)
+            // apktool 2.9's Config exposes these as public fields: aaptPath is a
+            // String path, with aaptVersion / useAapt2 alongside it. setConfig
+            // falls back from the (absent) setter to the field of the same name.
+            setConfig(config, "setAaptPath", String::class.java, aapt.file.absolutePath)
             setConfig(config, "setAaptVersion", Int::class.javaPrimitiveType!!, if (aapt.isAapt2) 2 else 1)
             setConfig(config, "setUseAapt2", Boolean::class.javaPrimitiveType!!, aapt.isAapt2)
         }
