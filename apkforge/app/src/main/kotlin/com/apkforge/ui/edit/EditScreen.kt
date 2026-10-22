@@ -57,7 +57,7 @@ import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EditScreen(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
+fun EditScreen(vm: ForgeViewModel, onOpenFile: (File, Int?) -> Unit) {
     var tab by remember { mutableStateOf(EditTab.FILES) }
     val decoded = vm.decodedDir != null
 
@@ -162,7 +162,7 @@ fun EditScreen(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
 private enum class EditTab { FILES, SEARCH, LOG }
 
 @Composable
-private fun FileTree(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
+private fun FileTree(vm: ForgeViewModel, onOpenFile: (File, Int?) -> Unit) {
     val nodes = vm.visibleNodes()
     if (nodes.isEmpty()) {
         Text(
@@ -180,7 +180,7 @@ private fun FileTree(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
                     if (node.isDirectory) {
                         vm.toggle(node)
                     } else if (vm.isProbablyText(node.file)) {
-                        onOpenFile(node.file)
+                        onOpenFile(node.file, null)
                     } else {
                         vm.message = "${node.name} is binary — open a text file (XML, smali, …)."
                     }
@@ -230,7 +230,7 @@ private fun TreeRow(node: FileNode, expanded: Boolean, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SearchPanel(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
+private fun SearchPanel(vm: ForgeViewModel, onOpenFile: (File, Int?) -> Unit) {
     if (vm.decodedDir == null) {
         Text(
             "Decode an APK first, then search its files.",
@@ -288,7 +288,7 @@ private fun SearchPanel(vm: ForgeViewModel, onOpenFile: (File) -> Unit) {
                 Column(
                     Modifier
                         .fillMaxWidth()
-                        .clickable { onOpenFile(hit.file) }
+                        .clickable { onOpenFile(hit.file, hit.line) }
                         .padding(vertical = 6.dp),
                 ) {
                     Text(

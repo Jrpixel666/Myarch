@@ -16,7 +16,7 @@ It has three pages, reached from the bottom navigation bar:
    `apktool b` and signs the result so it is installable again. A **Search**
    tab greps the decoded project by file name and (optionally) file contents —
    e.g. find a string, a method or a resource — and each hit opens the file in
-   the editor.
+   the editor, scrolled to and highlighting the matching line.
 
 The **Load** page also has a filter box to search the installed-apps list by
 label or package name.

@@ -117,8 +117,8 @@ private fun ApkForgeApp(vm: ForgeViewModel = viewModel()) {
             }
             composable(Dest.RUN.route) { RunScreen(vm) }
             composable(Dest.EDIT.route) {
-                EditScreen(vm, onOpenFile = {
-                    vm.openInEditor(it)
+                EditScreen(vm, onOpenFile = { file, line ->
+                    vm.openInEditor(file, line)
                     navController.navigate("editor")
                 })
             }

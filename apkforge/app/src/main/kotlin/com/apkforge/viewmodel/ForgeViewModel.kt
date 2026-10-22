@@ -53,7 +53,14 @@ class ForgeViewModel(app: Application) : AndroidViewModel(app) {
     var editingFile by mutableStateOf<File?>(null)
         private set
 
-    fun openInEditor(file: File) { editingFile = file }
+    /** 1-based line to jump to when the editor opens, or null to start at the top. */
+    var editingLine by mutableStateOf<Int?>(null)
+        private set
+
+    fun openInEditor(file: File, line: Int? = null) {
+        editingFile = file
+        editingLine = line
+    }
 
     /** Streaming output from decode / build / sign. */
     val log = mutableStateListOf<String>()
